@@ -30,6 +30,7 @@ Both were started without a compose file, the original command is not recorded. 
 |---|-------------|-----------|
 | Image | `portainer/portainer-ce:latest` | `smallstep/step-ca:latest` |
 | Restart policy | `always` | `no` |
+| State on 2026-11-09 | up | `Exited (0)` since the reboot |
 | Ports | 8000/tcp, 9443/tcp | 9000/tcp |
 | Volumes | `portainer_data` on `/data`, `/var/run/docker.sock` | `step-ca` on `/home/step` |
 | Environment | | `DOCKER_STEPCA_INIT_NAME=kingma`, `DOCKER_STEPCA_INIT_DNS_NAMES=ca.kingma`, `DOCKER_STEPCA_INIT_REMOTE_MANAGEMENT=true` |

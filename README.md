@@ -2,7 +2,7 @@
 
 Monitoring server `srv-monitor` on a Raspberry Pi 5 with Raspberry Pi OS (Debian 13 trixie). Icinga 2 with Icinga DB, Icinga Web 2 and Icinga Director monitors the network. Docker (managed with Portainer) runs the internal CA `step-ca`, an OCR pipeline for PDFs (`ipa-ocr`), a verification worker (`lj-worker`) and a packet loss test server (`performance`).
 
-State of this documentation: 2026-11-09, taken from a read-only inventory of the running host with [`inventory.sh`](docs/inventory-script.md). Secrets are replaced by `<redacted>`.
+State of this documentation: 2026-11-09 18:35 CET, taken from a read-only inventory of the running host (3 minutes after a reboot) with [`inventory.sh`](docs/inventory-script.md). Secrets are replaced by `<redacted>`.
 
 ## Hardware
 
@@ -30,15 +30,17 @@ Two wired interfaces, both DHCP through NetworkManager (`Wired connection 1` and
 
 | Interface | Address | Gateway | Metric | Notes |
 |-----------|---------|---------|--------|-------|
-| `eth0` | 192.168.111.22/26 | 192.168.111.30 | 103 | preferred default route |
-| `eth1` | 192.168.0.22/24 | 192.168.0.1 | 104 | second default route |
+| `eth0` | 192.168.111.22/26 | 192.168.111.30 | 101 | second default route |
+| `eth1` | 192.168.0.22/24 | 192.168.0.1 | 100 | preferred default route |
 | `wlan0` | | | | down |
 | `docker0` and `br-*` | 172.17.0.0/16 to 172.20.0.0/16 | | | Docker networks |
 
-- DNS: 192.168.111.2, then 9.9.9.9 and 149.112.112.112. Search domains `kingma` and `home`.
-- Time: `systemd-timesyncd` with `NTP=ntp.kingma` (see [`etc/systemd/timesyncd.conf`](etc/systemd/timesyncd.conf)), stratum 2, synchronized.
+- DNS: 9.9.9.9, 149.112.112.112, then 192.168.111.2. Search domains `home` and `kingma`.
+- Time: `systemd-timesyncd` with `NTP=ntp.kingma` (see [`etc/systemd/timesyncd.conf`](etc/systemd/timesyncd.conf)).
 - Hostname `srv-monitor`, mDNS through `avahi-daemon`.
-- Time zone `Europe/London`, locale `en_GB.UTF-8`, X11 layout `gb` (intl).
+- Time zone `Europe/Zurich`, locale `en_GB.UTF-8`, X11 layout `gb` (intl).
+
+Until the reboot of 2026-11-09 the order was the other way round: `eth0` metric 103 before `eth1` metric 104, and the internal DNS server 192.168.111.2 first. NetworkManager assigns the metrics (`Wired connection 1` is `eth0`, `Wired connection 2` is `eth1`), the DNS order follows them. See [open issues](#open-issues).
 
 ### Listening ports
 
@@ -53,7 +55,7 @@ Two wired interfaces, both DHCP through NetworkManager (`Wired connection 1` and
 | 6379 | redis-server | 127.0.0.1, ::1 | Redis (general) |
 | 6380 | redis-server | all | Redis for Icinga DB |
 | 8000, 9443 | docker-proxy | all | Portainer (edge agent, UI over HTTPS) |
-| 9000 | docker-proxy | all | step-ca |
+| 9000 | docker-proxy | all | step-ca (only while the container runs, see [open issues](#open-issues)) |
 
 ## Access
 
@@ -77,17 +79,17 @@ Installed by hand (from the apt history):
 
 ### Versions
 
-| Component | Installed | Available |
-|-----------|-----------|-----------|
-| Kernel | 6.18.50+rpt-rpi-2712 | 6.18.60 |
-| Icinga 2 | 2.16.5 | 2.16.6 |
-| Icinga DB | 1.5.1 | 1.6.0 |
-| Icinga DB Web | 1.4.0 | 1.5.0 |
-| Icinga Web 2 | 2.14.0 | 2.14.1 |
+| Component | Installed | |
+|-----------|-----------|---|
+| Kernel (running) | 6.18.50+rpt-rpi-2712 | |
+| Icinga 2 | 2.16.6 | |
+| Icinga DB | 1.6.0 | |
+| Icinga DB Web | 1.5.0 | |
+| Icinga Web 2 | 2.14.1 | |
 | Icinga Director | 1.12.1 | |
 | MariaDB | 11.8.6 | |
 | PHP | 8.4.27 (Apache `mod_php`, `mpm_prefork`) | |
-| Docker | 29.9.2 | 29.9.3 |
+| Docker | 29.9.3 | |
 
 ## Icinga
 
@@ -121,17 +123,20 @@ Systemd timers: `apt-daily`, `apt-daily-upgrade`, `dpkg-db-backup`, `e2scrub_all
 
 ## Open issues
 
-State of 2026-11-09.
+State of 2026-11-09, 18:35 CET.
 
 | Issue | Detail |
 |-------|--------|
-| `icingadb.service` failed | Down since 2026-10-22. MariaDB rejects the user `icingadb`: `Error 1045 Access denied for user 'icingadb'@'localhost' (using password: YES)`. The password in `/etc/icingadb/config.yml` does not match the database. Without Icinga DB the Icinga DB Web module has no data. |
-| Redis on 6380 read-only | `redis-cli -p 6380 ping` answers `MISCONF`: Redis cannot persist RDB snapshots and refuses writes. Cause is not yet identified (log: `/var/log/redis/redis-icingadb.log`, directory `/var/lib/icingadb-redis`). |
-| `performance` stack not started | `openpacketloss` is in state `Created`. The stack publishes `9000:80`, but port 9000 is taken by `step-ca`. The container was also created with `NAT_1TO1_IP=192.168.0.15`, while the stack file says `192.168.1.12`. |
-| `cert-renewer@.service` unused | The template exists, but there is no instance, no timer, and neither `/etc/step` nor `/etc/step-ca`. `step-ca` itself runs as a container with `restart=no`. |
-| Updates pending | 35 packages (kernel, Docker, Icinga packages and others) and a bootloader EEPROM update. |
-| Locale and time zone | `Europe/London` and `en_GB` on a host in Switzerland. |
-| `auto-update` inactive | See above. If it is made executable, the host reboots every day after the upgrade. |
+| `icingadb.service` does not start | Line 1 of `/etc/icingadb/config.yml` on the host begins with the text `vim -r /etc/icingadb/config.yml` in front of the comment, so the YAML is invalid: `can't parse YAML file /etc/icingadb/config.yml: [1:1] unexpected key name`. The copy in [`icinga/icingadb/config.yml`](icinga/icingadb/config.yml) has this prefix removed. Before the edit the service failed since 2026-10-22 with `Error 1045 Access denied for user 'icingadb'@'localhost'`. Whether the database password in the file matches MariaDB is not yet known, because the daemon does not get that far. The same password is used in `/etc/icingaweb2/resources.ini` (resource `icingadb`). |
+| `step-ca` is stopped | The container has `restart=no` and exited on the reboot (`Exited (0)`), so port 9000 is not served and the internal CA is offline. |
+| Default route and DNS order | After the reboot NetworkManager ranks `eth1` (metric 100) before `eth0` (101), and `/etc/resolv.conf` lists the public resolvers before the internal one (192.168.111.2). |
+| Time not synchronized | `timedatectl` reports `System clock synchronized: no`, and `timesync-status` shows `Server: n/a (ntp.kingma)` with 0 packets. Probably a consequence of the DNS order above: `ntp.kingma` is an internal name. Not verified: the host had been up for 3 minutes. |
+| `performance` stack not started | `openpacketloss` is in state `Created`. The stack publishes `9000:80`, which is the port of `step-ca`. The container was also created with `NAT_1TO1_IP=192.168.0.15`, while the stack file says `192.168.1.12`. |
+| `cert-renewer@.service` unused | The template exists, but there is no instance, no timer, and neither `/etc/step` nor `/etc/step-ca`. |
+| Bootloader update | EEPROM of 2025-05-08, version of 2026-10-30 available (`rpi-eeprom-update`). |
+| `auto-update` inactive | [`etc/cron.daily/auto-update`](etc/cron.daily/auto-update) is not executable. If it is made executable, the host reboots every day after the upgrade. |
+
+Solved on 2026-11-09: Redis on port 6380 answered `MISCONF` before the reboot and answers `PONG` since; time zone changed from `Europe/London` to `Europe/Zurich`; all pending package updates installed (Icinga 2.16.6, Icinga DB 1.6.0, Docker 29.9.3).
 
 ## Files that differ from the package defaults
 
