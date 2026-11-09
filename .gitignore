@@ -1,0 +1,3 @@
+# raw output of inventory.sh: review before committing anything from it
+inventory-*/
+inventory-*.tar.gz
