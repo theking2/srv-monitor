@@ -15,7 +15,7 @@ less inventory.sh          # read it first
 sudo ./inventory.sh        # writes ./inventory-<hostname>-<date>/ and a .tar.gz
 ```
 
-Run it with `sudo`. Without root, `ss -p`, the crontabs of other users and root-only configs are missing.
+The script requires root and exits otherwise. Without root, firewall rules, sudoers, effective sshd settings, `ss -p`, user crontabs and root-only service configs (for example `/etc/icinga2`) are missing. `-n` forces an incomplete run without root.
 
 ### What it collects
 
@@ -24,9 +24,11 @@ Run it with `sudo`. Without root, `ss -p`, the crontabs of other users and root-
 | Host | OS, kernel, Pi model, CPU, memory, firmware, throttling, time zone, `config.txt`, `cmdline.txt` |
 | Storage | `lsblk`, mounts, `fstab`, swap, ZFS/mdadm if present, network mounts |
 | Network | addresses, routes, DNS, NetworkManager/dhcpcd/netplan/networkd config, listening ports, firewall, time sync, effective sshd settings |
-| Services | running and enabled units, timers, failed units, cron of all users, hand-made units and drop-ins |
+| Services | running and enabled units, timers, failed units with status and journal tail, cron of all users, hand-made units and drop-ins |
+| Applications | config trees of known services if present (Icinga, Redis, MariaDB, Apache/nginx, Grafana, Prometheus, Zabbix, step-ca, samba and others), plus version and feature output |
+| Certificates | cert-renewer units and timers, subject, issuer, validity and SANs of `/etc/step/certs/*.crt` |
 | Packages | manually installed packages, apt command history, held and locally installed packages, apt sources, pip/npm/snap/flatpak/cargo, `/usr/local/bin`, `/opt`, `/srv` |
-| Containers | containers, images, ports, mounts, networks, volumes, compose files, Dockerfiles, env files |
+| Containers | containers, images, ports, mounts, networks, volumes, compose files, Dockerfiles, env files (stacks kept in a Portainer volume are resolved to their host path) |
 | Users | UID 0 and UID >= 1000 accounts, relevant groups, sudoers, `authorized_keys` fingerprints |
 | Drift | `/etc` conffiles that differ from the package default, files under `/etc` that no package ships |
 
@@ -36,8 +38,8 @@ Run it with `sudo`. Without root, `ss -p`, the crontabs of other users and root-
 inventory-<hostname>-<date>/
 ├── inventory.md              all command output
 └── files/
-    ├── boot/config.txt
-    ├── containers/<dir>/     compose.yaml, *.env, Dockerfile
+    ├── boot/firmware/        config.txt, cmdline.txt
+    ├── containers/<project>/ compose.yaml, *.env, Dockerfile
     ├── systemd/              hand-made units, timers, drop-ins
     ├── etc/                  changed or unpackaged config files
     └── packages-manual.txt
