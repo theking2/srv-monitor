@@ -25,7 +25,7 @@
 set -u
 umask 077
 
-VERSION=1
+VERSION=2
 OUT=""
 
 usage() {
