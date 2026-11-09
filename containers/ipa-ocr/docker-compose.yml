@@ -1,0 +1,41 @@
+services:
+  ipa-sync:
+    image: rclone/rclone:latest
+    container_name: ipa-sync
+    restart: unless-stopped
+    entrypoint: ["/bin/sh","-c"]
+    command:
+      - |
+        while true; do
+          rclone copy "dropbox:IPA 2027" /data --include "*.pdf" --update -v --config /config/rclone.conf
+          rclone copy /data "dropbox:IPA 2027" --include "*-OCR.pdf" --ignore-existing -v --config /config/rclone.conf
+          sleep 600
+        done
+    volumes:
+      - /srv/ipa-ocr/data:/data
+      - /srv/ipa-ocr/rclone:/config
+      - /srv/ipa-ocr/logs:/logs
+
+  ipa-ocr:
+    image: ipa-ocr:3
+    container_name: ipa-ocr
+    restart: unless-stopped
+    network_mode: none
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q ocr-loop /proc/1/cmdline"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - /srv/ipa-ocr/data:/data
+      - /srv/ipa-ocr/logs:/logs
+
+  ipa-log:
+    image: ipa-ocr:3
+    container_name: ipa-log
+    restart: unless-stopped
+    network_mode: none
+    entrypoint: ["tail", "-n", "50", "-F", "/logs/ocr.log"]
+    volumes:
+      - /srv/ipa-ocr/logs:/logs:ro

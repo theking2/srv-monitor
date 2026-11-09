@@ -1,0 +1,28 @@
+services:
+  openpacketloss:
+    image: openpacketloss/openpacketloss-server:latest
+    container_name: openpacketloss
+    restart: unless-stopped
+
+    ports:
+      # HTTP and API mapping
+      - "9000:80"
+      - "4000:4000/udp"
+
+      # WebRTC ICE UDP port range
+      - "40000-40050:40000-40050/udp"
+
+    environment:
+      # --- Networking (required) ---
+      - STUN_PORT=4000
+      - NAT_1TO1_IP=192.168.1.12
+
+      # --- WebRTC ICE Port Range ---
+      - ICE_PORT_MIN=40000
+      - ICE_PORT_MAX=40050
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

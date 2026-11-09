@@ -341,7 +341,7 @@ while IFS= read -r f; do
   stash_compose_dir "$(dirname "$f")"
 done < <(find / -maxdepth 7 \
            \( -path /proc -o -path /sys -o -path /dev -o -path /run -o -path /var/lib/docker \
-              -o -path /var/lib/containerd -o -path /usr -o -path /lib -o -path /snap -o -path '*/node_modules' \) -prune \
+              -o -path /var/lib/containerd -o -path /usr -o -path /lib -o -path /snap -o -path '*/node_modules' -o -path "$OUT" \) -prune \
            -o -type f \( -name 'compose*.y*ml' -o -name 'docker-compose*.y*ml' \) -print 2>/dev/null)
 
 say ""

@@ -1,0 +1,12 @@
+#!/bin/bash
+{
+	#Update APT 
+	apt-get update
+	apt-get upgrade -y
+	#uncomment line below to auto update firmware
+	#rpi-update
+	reboot
+
+   exit
+}
+

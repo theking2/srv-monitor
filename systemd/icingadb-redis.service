@@ -1,0 +1,14 @@
+[Unit]
+Description=Redis database for Icinga DB
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/redis-server /etc/redis/redis-icingadb.conf
+ExecStop=/usr/bin/redis-cli -p 6380 shutdown
+User=redis
+Group=redis
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
