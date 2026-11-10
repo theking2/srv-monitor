@@ -1,12 +1,16 @@
 #!/bin/bash
-{
-	#Update APT 
-	apt-get update
-	apt-get upgrade -y
-	#uncomment line below to auto update firmware
-	#rpi-update
-	reboot
+set -u
+export DEBIAN_FRONTEND=noninteractive
 
-   exit
-}
+apt-get update -q
+apt-get upgrade -y -q
+# firmware (rpi-update) is deliberately not updated automatically
 
+running=$(uname -r)                      # e.g. 6.18.50+rpt-rpi-2712
+flavor=${running##*-}                    # 2712
+latest=$(ls /usr/lib/modules | grep -- "-${flavor}\$" | sort -V | tail -1)
+
+if [ -n "$latest" ] && [ "$latest" != "$running" ]; then
+    logger -t auto-update "Neuer Kernel $latest (laeuft: $running), Neustart"
+    systemctl reboot
+fi

@@ -119,7 +119,7 @@ See [`containers/`](containers/README.md). Portainer manages three stacks and ru
 
 Systemd timers: `apt-daily`, `apt-daily-upgrade`, `dpkg-db-backup`, `e2scrub_all`, `fstrim`, `logrotate`, `man-db`, `phpsessionclean`, `rpi-zram-writeback`. There are no user crontabs.
 
-[`etc/cron.daily/auto-update`](etc/cron.daily/auto-update) runs `apt-get update`, `apt-get upgrade -y` and then `reboot` without a condition. The file is executable (`-rwxr-xr-x`, checked 2026-11-10), so the host reboots once a day through `cron.daily`.
+[`etc/cron.daily/auto-update`](etc/cron.daily/auto-update) runs `apt-get update` and `apt-get upgrade -y` once a day through `cron.daily`. It reboots only when a newer kernel of the running flavor (`2712`) is installed.
 
 ## Open issues
 
@@ -130,6 +130,8 @@ Tracked as [GitHub issues](https://github.com/theking2/srv-monitor/issues).
 Solved on 2026-11-09: time zone changed from `Europe/London` to `Europe/Zurich`; all pending package updates installed (Icinga 2.16.6, Icinga DB 1.6.0, Docker 29.9.3); time synchronization and DNS order (internal resolver first) are correct after the reboot.
 
 Solved on 2026-11-10: `icingadb.service` runs. Causes were a broken `/etc/icingadb/config.yml` (stray text in line 1, empty password), a database password that did not match MariaDB (changed, also set in the `icingadb` resource of Icinga Web 2), the pending schema migration `1.6.0.sql` (schema v7 to v8, after the package update) and Redis on port 6380 refusing writes (`MISCONF`) until `/var/lib/icingadb-redis` was recreated with owner `redis`. Config and history sync complete. `step-ca` was started again (it had exited on the reboot with `restart=no`) and its restart policy set to `unless-stopped`.
+
+Solved on 2026-11-10 (evening): `auto-update` reboots only after a kernel update of the running flavor, no longer daily ([#6](https://github.com/theking2/srv-monitor/issues/6)).
 
 ## Files that differ from the package defaults
 
