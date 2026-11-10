@@ -1,6 +1,6 @@
 # Containers
 
-Docker 29.9.2 with the compose plugin. Portainer CE manages the stacks. Portainer keeps the stack files in its data volume: `/var/lib/docker/volumes/portainer_data/_data/compose/<id>/` on the host, `/data/compose/<id>/` inside Portainer.
+Docker 29.9.3 with the compose plugin. Portainer CE manages the stacks. Portainer keeps the stack files in its data volume: `/var/lib/docker/volumes/portainer_data/_data/compose/<id>/` on the host, `/data/compose/<id>/` inside Portainer.
 
 ## Stacks
 

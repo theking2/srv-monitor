@@ -2,7 +2,7 @@
 
 Monitoring server `srv-monitor` on a Raspberry Pi 5 with Raspberry Pi OS (Debian 13 trixie). Icinga 2 with Icinga DB, Icinga Web 2 and Icinga Director monitors the network. Docker (managed with Portainer) runs the internal CA `step-ca`, an OCR pipeline for PDFs (`ipa-ocr`), a verification worker (`lj-worker`) and a packet loss test server (`performance`).
 
-State of this documentation: 2026-11-09 18:35 CET, taken from a read-only inventory of the running host (3 minutes after a reboot) with [`inventory.sh`](docs/inventory-script.md). Secrets are replaced by `<redacted>`.
+State of this documentation: 2026-11-10 07:45 CET, based on read-only inventories of the running host (last full inventory 2026-11-09 20:22, after a reboot) and the repairs of 2026-11-10 with [`inventory.sh`](docs/inventory-script.md). Secrets are replaced by `<redacted>`.
 
 ## Hardware
 
@@ -30,17 +30,17 @@ Two wired interfaces, both DHCP through NetworkManager (`Wired connection 1` and
 
 | Interface | Address | Gateway | Metric | Notes |
 |-----------|---------|---------|--------|-------|
-| `eth0` | 192.168.111.22/26 | 192.168.111.30 | 101 | second default route |
-| `eth1` | 192.168.0.22/24 | 192.168.0.1 | 100 | preferred default route |
+| `eth0` | 192.168.111.22/26 | 192.168.111.30 | 101 | preferred default route |
+| `eth1` | 192.168.0.22/24 | 192.168.0.1 | 102 | second default route |
 | `wlan0` | | | | down |
 | `docker0` and `br-*` | 172.17.0.0/16 to 172.20.0.0/16 | | | Docker networks |
 
-- DNS: 9.9.9.9, 149.112.112.112, then 192.168.111.2. Search domains `home` and `kingma`.
-- Time: `systemd-timesyncd` with `NTP=ntp.kingma` (see [`etc/systemd/timesyncd.conf`](etc/systemd/timesyncd.conf)).
+- DNS: 192.168.111.2, then 9.9.9.9 and 149.112.112.112. Search domains `home` and `kingma`.
+- Time: `systemd-timesyncd` with `NTP=ntp.kingma`, synchronized (see [`etc/systemd/timesyncd.conf`](etc/systemd/timesyncd.conf)).
 - Hostname `srv-monitor`, mDNS through `avahi-daemon`.
 - Time zone `Europe/Zurich`, locale `en_GB.UTF-8`, X11 layout `gb` (intl).
 
-Until the reboot of 2026-11-09 the order was the other way round: `eth0` metric 103 before `eth1` metric 104, and the internal DNS server 192.168.111.2 first. NetworkManager assigns the metrics (`Wired connection 1` is `eth0`, `Wired connection 2` is `eth1`), the DNS order follows them. See [open issues](#open-issues).
+The metrics are assigned by NetworkManager (`Wired connection 1` is `eth0`, `Wired connection 2` is `eth1`) and can change after a reboot. See [open issues](#open-issues).
 
 ### Listening ports
 
@@ -123,20 +123,21 @@ Systemd timers: `apt-daily`, `apt-daily-upgrade`, `dpkg-db-backup`, `e2scrub_all
 
 ## Open issues
 
-State of 2026-11-09, 18:35 CET.
+State of 2026-11-10, 07:45 CET.
 
 | Issue | Detail |
 |-------|--------|
-| `icingadb.service` does not start | Line 1 of `/etc/icingadb/config.yml` on the host begins with the text `vim -r /etc/icingadb/config.yml` in front of the comment, so the YAML is invalid: `can't parse YAML file /etc/icingadb/config.yml: [1:1] unexpected key name`. The copy in [`icinga/icingadb/config.yml`](icinga/icingadb/config.yml) has this prefix removed. Before the edit the service failed since 2026-10-22 with `Error 1045 Access denied for user 'icingadb'@'localhost'`. Whether the database password in the file matches MariaDB is not yet known, because the daemon does not get that far. The same password is used in `/etc/icingaweb2/resources.ini` (resource `icingadb`). |
 | `step-ca` is stopped | The container has `restart=no` and exited on the reboot (`Exited (0)`), so port 9000 is not served and the internal CA is offline. |
-| Default route and DNS order | After the reboot NetworkManager ranks `eth1` (metric 100) before `eth0` (101), and `/etc/resolv.conf` lists the public resolvers before the internal one (192.168.111.2). |
-| Time not synchronized | `timedatectl` reports `System clock synchronized: no`, and `timesync-status` shows `Server: n/a (ntp.kingma)` with 0 packets. Probably a consequence of the DNS order above: `ntp.kingma` is an internal name. Not verified: the host had been up for 3 minutes. |
+| Default route order | NetworkManager assigns the metrics dynamically (`eth0` 101, `eth1` 102 on 2026-11-09 20:22, the reverse on the boot before). They are not pinned, so the order can change after a reboot. |
+| `NetworkManager-wait-online.service` failed | Reported as failed after the reboot of 2026-11-09. Harmless as long as the network comes up. |
 | `performance` stack not started | `openpacketloss` is in state `Created`. The stack publishes `9000:80`, which is the port of `step-ca`. The container was also created with `NAT_1TO1_IP=192.168.0.15`, while the stack file says `192.168.1.12`. |
 | `cert-renewer@.service` unused | The template exists, but there is no instance, no timer, and neither `/etc/step` nor `/etc/step-ca`. |
 | Bootloader update | EEPROM of 2025-05-08, version of 2026-10-30 available (`rpi-eeprom-update`). |
 | `auto-update` inactive | [`etc/cron.daily/auto-update`](etc/cron.daily/auto-update) is not executable. If it is made executable, the host reboots every day after the upgrade. |
 
-Solved on 2026-11-09: Redis on port 6380 answered `MISCONF` before the reboot and answers `PONG` since; time zone changed from `Europe/London` to `Europe/Zurich`; all pending package updates installed (Icinga 2.16.6, Icinga DB 1.6.0, Docker 29.9.3).
+Solved on 2026-11-09: time zone changed from `Europe/London` to `Europe/Zurich`; all pending package updates installed (Icinga 2.16.6, Icinga DB 1.6.0, Docker 29.9.3); time synchronization and DNS order (internal resolver first) are correct after the reboot.
+
+Solved on 2026-11-10: `icingadb.service` runs. Causes were a broken `/etc/icingadb/config.yml` (stray text in line 1, empty password), a database password that did not match MariaDB (changed, also set in the `icingadb` resource of Icinga Web 2), the pending schema migration `1.6.0.sql` (schema v7 to v8, after the package update) and Redis on port 6380 refusing writes (`MISCONF`) until `/var/lib/icingadb-redis` was recreated with owner `redis`. Config and history sync complete.
 
 ## Files that differ from the package defaults
 
