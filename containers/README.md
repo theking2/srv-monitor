@@ -9,7 +9,7 @@ Docker 29.9.3 with the compose plugin. Portainer CE manages the stacks. Portaine
 | `ipa-ocr` | 3 | `ipa-ocr` | `ipa-ocr:3` (local build) | up, healthy | no network, 2 GB memory limit, OCR loop |
 | | | `ipa-log` | `ipa-ocr:3` | up | no network, tails `/logs/ocr.log` read-only |
 | | | `ipa-sync` | `rclone/rclone:latest` | up | every 600 s: PDFs from a Dropbox folder to `/data`, `*-OCR.pdf` results back |
-| `performance` | 2 | `openpacketloss` | `openpacketloss/openpacketloss-server:latest` | `Created`, never started | port 9000 is taken by `step-ca`, see [open issues](../README.md#open-issues) |
+| `performance` | 2 | `openpacketloss` | `openpacketloss/openpacketloss-server:latest` | `Created`, never started | port 9000 is taken by `step-ca`, see [open issues](https://github.com/theking2/srv-monitor/issues) |
 | `lj-worker` | 1 | `lj-worker` | `lj-worker:latest` (built by Portainer from a Git repository) | up, healthy | verification worker, no published ports, runs read-only with all capabilities dropped |
 
 Compose files: [`ipa-ocr/docker-compose.yml`](ipa-ocr/docker-compose.yml), [`performance/docker-compose.yml`](performance/docker-compose.yml). The `lj-worker` stack is deployed from Git through Portainer and is not mirrored here. The Dockerfile of the image `ipa-ocr:3` is not on this host.

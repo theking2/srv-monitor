@@ -40,7 +40,7 @@ Two wired interfaces, both DHCP through NetworkManager (`Wired connection 1` and
 - Hostname `srv-monitor`, mDNS through `avahi-daemon`.
 - Time zone `Europe/Zurich`, locale `en_GB.UTF-8`, X11 layout `gb` (intl).
 
-The metrics are assigned by NetworkManager (`Wired connection 1` is `eth0`, `Wired connection 2` is `eth1`) and can change after a reboot. See [open issues](#open-issues).
+The metrics are assigned by NetworkManager (`Wired connection 1` is `eth0`, `Wired connection 2` is `eth1`) and can change after a reboot. See [open issues](https://github.com/theking2/srv-monitor/issues).
 
 ### Listening ports
 
@@ -123,16 +123,9 @@ Systemd timers: `apt-daily`, `apt-daily-upgrade`, `dpkg-db-backup`, `e2scrub_all
 
 ## Open issues
 
-State of 2026-11-10, 08:00 CET.
+Tracked as [GitHub issues](https://github.com/theking2/srv-monitor/issues).
 
-| Issue | Detail |
-|-------|--------|
-| Default route order | NetworkManager assigns the metrics dynamically (`eth0` 101, `eth1` 102 on 2026-11-09 20:22, the reverse on the boot before). They are not pinned, so the order can change after a reboot. |
-| `NetworkManager-wait-online.service` failed | Reported as failed after the reboot of 2026-11-09. Harmless as long as the network comes up. |
-| `performance` stack not started | `openpacketloss` is in state `Created`. The stack publishes `9000:80`, which is the port of `step-ca`. The container was also created with `NAT_1TO1_IP=192.168.0.15`, while the stack file says `192.168.1.12`. |
-| `cert-renewer@.service` unused | The template exists, but there is no instance, no timer, and neither `/etc/step` nor `/etc/step-ca`. |
-| Bootloader update | EEPROM of 2025-05-08, version of 2026-10-30 available (`rpi-eeprom-update`). |
-| `auto-update` reboots daily | [`etc/cron.daily/auto-update`](etc/cron.daily/auto-update) is executable and calls `reboot` after every run, not only after kernel updates. Icinga, Redis and containers without a restart policy are down after each reboot. A variant that reboots only when a newer kernel of the running flavor (`2712`) is installed was proposed, not yet applied. |
+## Changes
 
 Solved on 2026-11-09: time zone changed from `Europe/London` to `Europe/Zurich`; all pending package updates installed (Icinga 2.16.6, Icinga DB 1.6.0, Docker 29.9.3); time synchronization and DNS order (internal resolver first) are correct after the reboot.
 
