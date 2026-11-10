@@ -119,11 +119,11 @@ See [`containers/`](containers/README.md). Portainer manages three stacks and ru
 
 Systemd timers: `apt-daily`, `apt-daily-upgrade`, `dpkg-db-backup`, `e2scrub_all`, `fstrim`, `logrotate`, `man-db`, `phpsessionclean`, `rpi-zram-writeback`. There are no user crontabs.
 
-[`etc/cron.daily/auto-update`](etc/cron.daily/auto-update) runs `apt-get upgrade -y` and then `reboot`. The file is not executable (`-rw-r--r--`), so `run-parts` skips it and it is inactive.
+[`etc/cron.daily/auto-update`](etc/cron.daily/auto-update) runs `apt-get update`, `apt-get upgrade -y` and then `reboot` without a condition. The file is executable (`-rwxr-xr-x`, checked 2026-11-10), so the host reboots once a day through `cron.daily`.
 
 ## Open issues
 
-State of 2026-11-10, 07:50 CET.
+State of 2026-11-10, 08:00 CET.
 
 | Issue | Detail |
 |-------|--------|
@@ -132,7 +132,7 @@ State of 2026-11-10, 07:50 CET.
 | `performance` stack not started | `openpacketloss` is in state `Created`. The stack publishes `9000:80`, which is the port of `step-ca`. The container was also created with `NAT_1TO1_IP=192.168.0.15`, while the stack file says `192.168.1.12`. |
 | `cert-renewer@.service` unused | The template exists, but there is no instance, no timer, and neither `/etc/step` nor `/etc/step-ca`. |
 | Bootloader update | EEPROM of 2025-05-08, version of 2026-10-30 available (`rpi-eeprom-update`). |
-| `auto-update` inactive | [`etc/cron.daily/auto-update`](etc/cron.daily/auto-update) is not executable. If it is made executable, the host reboots every day after the upgrade. |
+| `auto-update` reboots daily | [`etc/cron.daily/auto-update`](etc/cron.daily/auto-update) is executable and calls `reboot` after every run, not only after kernel updates. Icinga, Redis and containers without a restart policy are down after each reboot. A variant that reboots only when a newer kernel of the running flavor (`2712`) is installed was proposed, not yet applied. |
 
 Solved on 2026-11-09: time zone changed from `Europe/London` to `Europe/Zurich`; all pending package updates installed (Icinga 2.16.6, Icinga DB 1.6.0, Docker 29.9.3); time synchronization and DNS order (internal resolver first) are correct after the reboot.
 
