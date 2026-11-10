@@ -55,7 +55,7 @@ The metrics are assigned by NetworkManager (`Wired connection 1` is `eth0`, `Wir
 | 6379 | redis-server | 127.0.0.1, ::1 | Redis (general) |
 | 6380 | redis-server | all | Redis for Icinga DB |
 | 8000, 9443 | docker-proxy | all | Portainer (edge agent, UI over HTTPS) |
-| 9000 | docker-proxy | all | step-ca (only while the container runs, see [open issues](#open-issues)) |
+| 9000 | docker-proxy | all | step-ca (`https://ca.kingma:9000`) |
 
 ## Access
 
@@ -123,11 +123,10 @@ Systemd timers: `apt-daily`, `apt-daily-upgrade`, `dpkg-db-backup`, `e2scrub_all
 
 ## Open issues
 
-State of 2026-11-10, 07:45 CET.
+State of 2026-11-10, 07:50 CET.
 
 | Issue | Detail |
 |-------|--------|
-| `step-ca` is stopped | The container has `restart=no` and exited on the reboot (`Exited (0)`), so port 9000 is not served and the internal CA is offline. |
 | Default route order | NetworkManager assigns the metrics dynamically (`eth0` 101, `eth1` 102 on 2026-11-09 20:22, the reverse on the boot before). They are not pinned, so the order can change after a reboot. |
 | `NetworkManager-wait-online.service` failed | Reported as failed after the reboot of 2026-11-09. Harmless as long as the network comes up. |
 | `performance` stack not started | `openpacketloss` is in state `Created`. The stack publishes `9000:80`, which is the port of `step-ca`. The container was also created with `NAT_1TO1_IP=192.168.0.15`, while the stack file says `192.168.1.12`. |
@@ -137,7 +136,7 @@ State of 2026-11-10, 07:45 CET.
 
 Solved on 2026-11-09: time zone changed from `Europe/London` to `Europe/Zurich`; all pending package updates installed (Icinga 2.16.6, Icinga DB 1.6.0, Docker 29.9.3); time synchronization and DNS order (internal resolver first) are correct after the reboot.
 
-Solved on 2026-11-10: `icingadb.service` runs. Causes were a broken `/etc/icingadb/config.yml` (stray text in line 1, empty password), a database password that did not match MariaDB (changed, also set in the `icingadb` resource of Icinga Web 2), the pending schema migration `1.6.0.sql` (schema v7 to v8, after the package update) and Redis on port 6380 refusing writes (`MISCONF`) until `/var/lib/icingadb-redis` was recreated with owner `redis`. Config and history sync complete.
+Solved on 2026-11-10: `icingadb.service` runs. Causes were a broken `/etc/icingadb/config.yml` (stray text in line 1, empty password), a database password that did not match MariaDB (changed, also set in the `icingadb` resource of Icinga Web 2), the pending schema migration `1.6.0.sql` (schema v7 to v8, after the package update) and Redis on port 6380 refusing writes (`MISCONF`) until `/var/lib/icingadb-redis` was recreated with owner `redis`. Config and history sync complete. `step-ca` was started again (it had exited on the reboot with `restart=no`) and its restart policy set to `unless-stopped`.
 
 ## Files that differ from the package defaults
 

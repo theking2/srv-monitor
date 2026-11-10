@@ -29,8 +29,8 @@ Both were started without a compose file, the original command is not recorded. 
 | | `portainer` | `step-ca` |
 |---|-------------|-----------|
 | Image | `portainer/portainer-ce:latest` | `smallstep/step-ca:latest` |
-| Restart policy | `always` | `no` |
-| State on 2026-11-09 | up | `Exited (0)` since the reboot |
+| Restart policy | `always` | `unless-stopped` (changed 2026-11-10, was `no`) |
+| State on 2026-11-10 | up | up (Smallstep CA 0.30.2), started again after it had exited on the reboot |
 | Ports | 8000/tcp, 9443/tcp | 9000/tcp |
 | Volumes | `portainer_data` on `/data`, `/var/run/docker.sock` | `step-ca` on `/home/step` |
 | Environment | | `DOCKER_STEPCA_INIT_NAME=kingma`, `DOCKER_STEPCA_INIT_DNS_NAMES=ca.kingma`, `DOCKER_STEPCA_INIT_REMOTE_MANAGEMENT=true` |
