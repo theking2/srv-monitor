@@ -24,7 +24,6 @@ The script requires root and exits otherwise. Without root, firewall rules, sudo
 | Network | addresses, routes, DNS, NetworkManager/dhcpcd/netplan/networkd config, listening ports, firewall, time sync, effective sshd settings |
 | Services | running and enabled units, timers, failed units with status and journal tail, cron of all users, hand-made units and drop-ins |
 | Applications | config trees of known services if present (Icinga, Redis, MariaDB, Apache/nginx, Grafana, Prometheus, Zabbix, step-ca, samba and others), plus version and feature output |
-| Certificates | cert-renewer units and timers, subject, issuer, validity and SANs of `/etc/step/certs/*.crt` |
 | Packages | manually installed packages, apt command history, held and locally installed packages, apt sources, pip/npm/snap/flatpak/cargo, `/usr/local/bin`, `/opt`, `/srv` |
 | Containers | containers, images, ports, mounts, networks, volumes, compose files, Dockerfiles, env files (stacks kept in a Portainer volume are resolved to their host path) |
 | Users | UID 0 and UID >= 1000 accounts, relevant groups, sudoers, `authorized_keys` fingerprints |

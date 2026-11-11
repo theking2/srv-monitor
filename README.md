@@ -30,8 +30,8 @@ Two wired interfaces, both DHCP through NetworkManager (`Wired connection 1` and
 
 | Interface | Address | Gateway | Metric | Notes |
 |-----------|---------|---------|--------|-------|
-| `eth0` | 192.168.111.22/26 | 192.168.111.30 | 101 | preferred default route |
-| `eth1` | 192.168.0.22/24 | 192.168.0.1 | 102 | second default route |
+| `eth0` | 192.168.111.22/26 | 192.168.111.30 | 100 | preferred default route |
+| `eth1` | 192.168.0.22/24 | 192.168.0.1 | 200 | second default route |
 | `wlan0` | | | | down |
 | `docker0` and `br-*` | 172.17.0.0/16 to 172.20.0.0/16 | | | Docker networks |
 
@@ -40,7 +40,7 @@ Two wired interfaces, both DHCP through NetworkManager (`Wired connection 1` and
 - Hostname `srv-monitor`, mDNS through `avahi-daemon`.
 - Time zone `Europe/Zurich`, locale `en_GB.UTF-8`, X11 layout `gb` (intl).
 
-The metrics are assigned by NetworkManager (`Wired connection 1` is `eth0`, `Wired connection 2` is `eth1`) and can change after a reboot. See [open issues](https://github.com/theking2/srv-monitor/issues).
+The metrics are pinned in the NetworkManager profiles `eth0` and `eth1` (`nmcli con mod <profile> ipv4.route-metric <n>`), so the order survives a reboot.
 
 ### Listening ports
 
@@ -132,6 +132,8 @@ Solved on 2026-11-09: time zone changed from `Europe/London` to `Europe/Zurich`;
 Solved on 2026-11-10: `icingadb.service` runs. Causes were a broken `/etc/icingadb/config.yml` (stray text in line 1, empty password), a database password that did not match MariaDB (changed, also set in the `icingadb` resource of Icinga Web 2), the pending schema migration `1.6.0.sql` (schema v7 to v8, after the package update) and Redis on port 6380 refusing writes (`MISCONF`) until `/var/lib/icingadb-redis` was recreated with owner `redis`. Config and history sync complete. `step-ca` was started again (it had exited on the reboot with `restart=no`) and its restart policy set to `unless-stopped`.
 
 Solved on 2026-11-10 (evening): `auto-update` reboots only after a kernel update of the running flavor, no longer daily ([#6](https://github.com/theking2/srv-monitor/issues/6)).
+
+Solved on 2026-11-11: route metrics are pinned in NetworkManager (`eth0` 100, `eth1` 200; profiles renamed from `Wired connection N` and bound to their interface) ([#1](https://github.com/theking2/srv-monitor/issues/1)); `NetworkManager-wait-online` no longer fails on boot ([#2](https://github.com/theking2/srv-monitor/issues/2)); the `performance` stack (openpacketloss) was removed, which frees port 9000 for `step-ca` ([#3](https://github.com/theking2/srv-monitor/issues/3)); `cert-renewer@.service` was removed because TLS certificates come from the nginx-proxy on srv-nas-pi (Let's Encrypt) and this host manages none ([#4](https://github.com/theking2/srv-monitor/issues/4)); the bootloader EEPROM is up to date ([#5](https://github.com/theking2/srv-monitor/issues/5)).
 
 ## Files that differ from the package defaults
 

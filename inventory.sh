@@ -341,7 +341,7 @@ while IFS= read -r f; do
   stash_compose_dir "$(dirname "$f")"
 done < <(find / -maxdepth 7 \
            \( -path /proc -o -path /sys -o -path /dev -o -path /run -o -path /var/lib/docker \
-              -o -path /var/lib/containerd -o -path /usr -o -path /lib -o -path /snap -o -path '*/node_modules' -o -path "$OUT" \) -prune \
+              -o -path /var/lib/containerd -o -path /usr -o -path /lib -o -path /snap -o -path '*/node_modules' -o -path "$OUT" -o -path '*/inventory-*' \) -prune \
            -o -type f \( -name 'compose*.y*ml' -o -name 'docker-compose*.y*ml' \) -print 2>/dev/null)
 
 say ""
@@ -434,18 +434,11 @@ run 'apache2ctl -S'
 run 'apache2ctl -M'
 run 'php -v'
 
-# ------------------------------------------------------------ certificates --
-
-section "Certificates"
-run 'systemctl list-units "cert-renewer@*" --all --no-pager --plain'
-run 'systemctl list-timers "cert-renewer@*" --all --no-pager'
-run 'ls -la /etc/step /etc/step/certs /etc/step-ca'
-run 'for c in /etc/step/certs/*.crt /etc/ssl/local/*.crt; do [ -f "$c" ] || continue; echo "[$c]"; openssl x509 -in "$c" -noout -subject -issuer -dates -ext subjectAltName; done'
-run 'step ca health'
-
 # ---------------------------------------------------------------- finish --
 
 ( cd "$OUT/.." && tar czf "$OUT.tar.gz" "$(basename "$OUT")" ) 2>/dev/null
+# under sudo $USER is root; hand the archive to the invoking user
+[ -n "${SUDO_USER:-}" ] && chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$OUT.tar.gz" 2>/dev/null
 
 echo >&2
 echo "[done] $OUT/inventory.md" >&2
