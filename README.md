@@ -22,7 +22,7 @@ Swap is a 2 GB zram device (`/dev/zram0`, priority 100). Used: 9.4 GB of 235 GB.
 
 ### Boot configuration
 
-[`config.txt`](config.txt) is the stock Raspberry Pi OS file; nothing is added for the NVMe disk. [`cmdline.txt`](cmdline.txt) is stock plus `cgroup_enable=memory` (2026-11-28), so Docker can enforce memory limits.
+[`config.txt`](config.txt) is the stock Raspberry Pi OS file plus `dtparam=eee=off` (2026-11-28, see Changes); nothing is added for the NVMe disk. [`cmdline.txt`](cmdline.txt) is stock plus `cgroup_enable=memory` (2026-11-28), so Docker can enforce memory limits.
 
 ## Network
 
@@ -174,6 +174,8 @@ Solved on 2026-11-11: route metrics are pinned in NetworkManager (`eth0` 100, `e
 Solved on 2026-11-28: the Director is set up (kickstart, schema migrations, API user, `TicketSalt`) and srv-nas-pi is monitored through an Icinga agent; Graphite and the Icinga Web graphite module show performance data as graphs.
 
 Solved on 2026-11-28 (afternoon): Docker memory limits are enforced. The firmware adds `cgroup_disable=memory` to the kernel command line (Raspberry Pi default); [`cmdline.txt`](cmdline.txt) now ends with `cgroup_enable=memory`, which comes later and wins. After the reboot `graphite` (512 MiB) and `ipa-ocr` (2 GiB) were recreated, because Docker stores a limit of 0 for containers created while limits were unsupported. `lj-worker` got its 512 MiB with `docker update --memory 512m --memory-swap 1g`: "Update the stack" in Portainer does not recreate a container whose compose file is unchanged.
+
+Solved on 2026-11-28 (evening): sporadic packet loss from srv-monitor to srv-nas-pi and net-router (about 4 % at one ping per second, 43 soft CRITICALs in an hour) came from Energy Efficient Ethernet on the onboard port `eth0`: the link sleeps in pauses (85 000 wake-ups since boot) and lost packets on wake-up. Routing was ruled out: replies leave on the interface the request came in on, the NAS answers every request that reaches it, and the DMZ path over the USB adapters had no loss. EEE is off at runtime (`ethtool --set-eee eth0 eee off`) and from the next boot through `dtparam=eee=off` in `config.txt`; no Icinga loss events since. If single losses come back, swap the cable or switch port.
 
 ## Files that differ from the package defaults
 
