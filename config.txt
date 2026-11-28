@@ -52,3 +52,6 @@ dtoverlay=dwc2,dr_mode=host
 dtoverlay=nospi10
 
 [all]
+dtparam=pciex1_gen=3
+# Energy Efficient Ethernet off: with EEE the onboard port lost packets after idle periods (2026-11-28)
+dtparam=eee=off
