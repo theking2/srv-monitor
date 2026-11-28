@@ -1,0 +1,25 @@
+# Graphite for Icinga 2 performance data (GraphiteWriter -> carbon, Icinga Web graphite module -> graphite-web).
+# Deployed with: cd /srv/graphite && sudo docker compose up -d
+# Both ports are bound to localhost: icinga2 writes and Icinga Web renders from this host only.
+services:
+  graphite:
+    image: graphiteapp/graphite-statsd:latest
+    container_name: graphite
+    restart: unless-stopped
+    environment:
+      GRAPHITE_TIME_ZONE: Europe/Zurich
+      COLLECTD: "0"
+      REDIS_TAGDB: "0"
+    ports:
+      - "127.0.0.1:2003:2003"   # carbon plaintext (icinga2 GraphiteWriter)
+      - "127.0.0.1:8080:8080"   # graphite-web (Icinga Web graphite module)
+    volumes:
+      - /srv/graphite/conf:/opt/graphite/conf
+      - /srv/graphite/storage:/opt/graphite/storage
+      - /srv/graphite/statsd:/opt/statsd/config
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

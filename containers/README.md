@@ -6,7 +6,7 @@ Docker 29.9.3 with the compose plugin. Portainer CE manages the stacks. Portaine
 
 | Stack | Id | Container | Image | State | Notes |
 |-------|----|-----------|-------|-------|-------|
-| `ipa-ocr` | 3 | `ipa-ocr` | `ipa-ocr:3` (local build) | up, healthy | no network, 2 GB memory limit, OCR loop |
+| `ipa-ocr` | 3 | `ipa-ocr` | `ipa-ocr:3` (local build) | up, healthy | no network, 2 GB memory limit (not enforced, see below), OCR loop |
 | | | `ipa-log` | `ipa-ocr:3` | up | no network, tails `/logs/ocr.log` read-only |
 | | | `ipa-sync` | `rclone/rclone:latest` | up | every 600 s: PDFs from a Dropbox folder to `/data`, `*-OCR.pdf` results back |
 | `performance` | 2 | `openpacketloss` | `openpacketloss/openpacketloss-server:latest` | `Created`, never started | port 9000 is taken by `step-ca`, see [open issues](https://github.com/theking2/srv-monitor/issues) |
@@ -21,6 +21,16 @@ Compose files: [`ipa-ocr/docker-compose.yml`](ipa-ocr/docker-compose.yml), [`per
 | `/srv/ipa-ocr/data` | `/data` | `ipa-ocr`, `ipa-sync` |
 | `/srv/ipa-ocr/logs` | `/logs` | `ipa-ocr`, `ipa-sync`, `ipa-log` (read-only) |
 | `/srv/ipa-ocr/rclone` | `/config` | `ipa-sync` (rclone configuration, not documented here) |
+
+Memory limits are not enforced on this host: the kernel boots with `cgroup_disable=memory` (Raspberry Pi default) and `docker info` reports `No memory limit support`. Adding `cgroup_enable=memory` to `/boot/firmware/cmdline.txt` and rebooting fixes it.
+
+## Compose stack outside Portainer
+
+| Stack | Directory | Container | Image | Ports | Notes |
+|-------|-----------|-----------|-------|-------|-------|
+| `graphite` | `/srv/graphite` | `graphite` | `graphiteapp/graphite-statsd:latest` | `127.0.0.1:2003` (carbon), `127.0.0.1:8080` (graphite-web) | Icinga performance data, see [`graphite/`](graphite); started with `docker compose up -d`, shown in Portainer as a limited stack |
+
+`/srv/graphite` holds `conf` (written by the image on first start; [`storage-schemas.conf`](graphite/storage-schemas.conf) and [`storage-aggregation.conf`](graphite/storage-aggregation.conf) replaced), `storage` (whisper files) and `statsd` (unused). The image also runs statsd; its ports are not published.
 
 ## Standalone containers
 
