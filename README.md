@@ -22,7 +22,7 @@ Swap is a 2 GB zram device (`/dev/zram0`, priority 100). Used: 9.4 GB of 235 GB.
 
 ### Boot configuration
 
-[`config.txt`](config.txt) and [`cmdline.txt`](cmdline.txt) are the stock Raspberry Pi OS files. Nothing is added for the NVMe disk.
+[`config.txt`](config.txt) is the stock Raspberry Pi OS file; nothing is added for the NVMe disk. [`cmdline.txt`](cmdline.txt) is stock plus `cgroup_enable=memory` (2026-11-28), so Docker can enforce memory limits.
 
 ## Network
 
@@ -170,7 +170,7 @@ Solved on 2026-11-11: route metrics are pinned in NetworkManager (`eth0` 100, `e
 
 Solved on 2026-11-28: the Director is set up (kickstart, schema migrations, API user, `TicketSalt`) and srv-nas-pi is monitored through an Icinga agent; Graphite and the Icinga Web graphite module show performance data as graphs.
 
-Found on 2026-11-28, not solved: the kernel command line has `cgroup_disable=memory` (Raspberry Pi default), so Docker cannot enforce memory limits. `mem_limit` of `graphite` and the 2 GB limit of `ipa-ocr` are not in effect (`docker info`: `No memory limit support`). Fix: add `cgroup_enable=memory` to [`cmdline.txt`](cmdline.txt) and reboot.
+Solved on 2026-11-28 (afternoon): Docker memory limits are enforced. The firmware adds `cgroup_disable=memory` to the kernel command line (Raspberry Pi default); [`cmdline.txt`](cmdline.txt) now ends with `cgroup_enable=memory`, which comes later and wins. After the reboot `graphite` (512 MiB) and `ipa-ocr` (2 GiB) were recreated, because Docker stores a limit of 0 for containers created while limits were unsupported. `lj-worker` (512 MiB, 1 CPU) still needs an update of its stack in Portainer: its compose file takes `LJ_WORKER_SECRET` from Portainer.
 
 ## Files that differ from the package defaults
 

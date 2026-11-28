@@ -6,7 +6,7 @@ Docker 29.9.3 with the compose plugin. Portainer CE manages the stacks. Portaine
 
 | Stack | Id | Container | Image | State | Notes |
 |-------|----|-----------|-------|-------|-------|
-| `ipa-ocr` | 3 | `ipa-ocr` | `ipa-ocr:3` (local build) | up, healthy | no network, 2 GB memory limit (not enforced, see below), OCR loop |
+| `ipa-ocr` | 3 | `ipa-ocr` | `ipa-ocr:3` (local build) | up, healthy | no network, 2 GB memory limit, OCR loop |
 | | | `ipa-log` | `ipa-ocr:3` | up | no network, tails `/logs/ocr.log` read-only |
 | | | `ipa-sync` | `rclone/rclone:latest` | up | every 600 s: PDFs from a Dropbox folder to `/data`, `*-OCR.pdf` results back |
 | `performance` | 2 | `openpacketloss` | `openpacketloss/openpacketloss-server:latest` | `Created`, never started | port 9000 is taken by `step-ca`, see [open issues](https://github.com/theking2/srv-monitor/issues) |
@@ -22,7 +22,7 @@ Compose files: [`ipa-ocr/docker-compose.yml`](ipa-ocr/docker-compose.yml), [`per
 | `/srv/ipa-ocr/logs` | `/logs` | `ipa-ocr`, `ipa-sync`, `ipa-log` (read-only) |
 | `/srv/ipa-ocr/rclone` | `/config` | `ipa-sync` (rclone configuration, not documented here) |
 
-Memory limits are not enforced on this host: the kernel boots with `cgroup_disable=memory` (Raspberry Pi default) and `docker info` reports `No memory limit support`. Adding `cgroup_enable=memory` to `/boot/firmware/cmdline.txt` and rebooting fixes it.
+Memory limits are enforced since 2026-11-28 (`cgroup_enable=memory` in `/boot/firmware/cmdline.txt`). A container created before that keeps a limit of 0 until it is recreated: done for `graphite` and `ipa-ocr`; `lj-worker` needs "Update the stack" in Portainer, because its compose file takes `LJ_WORKER_SECRET` from Portainer.
 
 ## Compose stack outside Portainer
 
