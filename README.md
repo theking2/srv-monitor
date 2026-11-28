@@ -22,7 +22,7 @@ Swap is a 2 GB zram device (`/dev/zram0`, priority 100). Used: 9.4 GB of 235 GB.
 
 ### Boot configuration
 
-[`config.txt`](config.txt) and [`cmdline.txt`](cmdline.txt) are the stock Raspberry Pi OS files. Nothing is added for the NVMe disk.
+[`config.txt`](config.txt) is the stock Raspberry Pi OS file; nothing is added for the NVMe disk. [`cmdline.txt`](cmdline.txt) is stock plus `cgroup_enable=memory` (2026-11-28), so Docker can enforce memory limits.
 
 ## Network
 
@@ -55,6 +55,8 @@ The metrics are pinned in the NetworkManager profiles `eth0` and `eth1` (`nmcli 
 | 6379 | redis-server | 127.0.0.1, ::1 | Redis (general) |
 | 6380 | redis-server | all | Redis for Icinga DB |
 | 8000, 9443 | docker-proxy | all | Portainer (edge agent, UI over HTTPS) |
+| 2003 | docker-proxy | 127.0.0.1 | Graphite carbon (Icinga 2 GraphiteWriter) |
+| 8080 | docker-proxy | 127.0.0.1 | graphite-web (Icinga Web graphite module) |
 | 9000 | docker-proxy | all | step-ca (`https://ca.kingma:9000`) |
 
 ## Access
@@ -105,7 +107,7 @@ Single node: `NodeName` and `ZoneName` are both `srv-monitor`. The configuration
 | `icingaweb2/` | resources (databases `icingaweb2`, `icingadb`, `director`), DB authentication, modules `icingadb` and `director` |
 | `redis/redis-icingadb.conf` | second Redis instance on port 6380 |
 
-- Enabled features: `api`, `checker`, `icingadb`, `mainlog`, `notification`.
+- Enabled features: `api`, `checker`, `graphite`, `icingadb`, `mainlog`, `notification`.
 - The configuration validates (`icinga2 daemon -C`): 1 host, 12 services, 13 notifications, 250 check commands.
 - Icinga Web 2 stores its configuration, authentication and the Director in MariaDB. Databases: `icingaweb2`, `icingadb`, `director` (194 MB in `/var/lib/mysql`).
 - `icinga-director.service` runs the Director daemon. The Director is kickstarted (2026-11-28) from `modules/director/kickstart.ini`: it owns endpoint and zone `srv-monitor` and deploys to the master.
@@ -132,9 +134,19 @@ Remote hosts are managed in the Director only. Hand-written files in `conf.d` co
 New agent: create the host in the Director (import `linux-agent`), deploy, get a ticket with `sudo icinga2 pki ticket --cn <host>`, then run `icinga2 node setup` on the agent with parent endpoint `srv-monitor,192.168.111.22,5665`.
 - `icingadb-redis.service` is a hand-made unit, see [`systemd/`](systemd).
 
+### Graphs
+
+Performance data goes to Graphite, and Icinga Web 2 shows it as graphs on each host and service page (set up 2026-11-28).
+
+- `GraphiteWriter` ([`features-available/graphite.conf`](icinga/icinga2/features-available/graphite.conf)) sends to carbon on `127.0.0.1:2003`, with thresholds (`enable_send_thresholds`). Metric path: `icinga2.<host>.services.<service>.<command>.perfdata.<label>.<value|warn|crit|min|max>`, dots and spaces in names become `_`.
+- Graphite runs in the container `graphite` ([`containers/graphite`](containers/graphite)), data in `/srv/graphite/storage` (whisper files are preallocated, about 0.8 MB per metric).
+- Retention ([`storage-schemas.conf`](containers/graphite/storage-schemas.conf)) follows the check interval: 5 min for 90 days, 30 min for 1 year, 2 h for 5 years; SMART checks start at 30 min, `apt` at 1 h, certificate checks at 6 h. A finer archive than the check interval would leave gaps that graphite-web does not draw. Rules apply to new metrics only; existing files need `whisper-resize.py`.
+- Icinga Web module `graphite` 1.2.4 (Debian package `icingaweb2-module-graphite`), [`config.ini`](icinga/icingaweb2/modules/graphite/config.ini) points at `http://127.0.0.1:8080`. Graph templates for the own check commands (`zpool`, `smart_disk`, `pi_health`, `memavail`): [`templates/custom.ini`](icinga/icingaweb2/modules/graphite/templates/custom.ini).
+- Carbon creates at most 50 new metrics per minute, so a new host shows all its graphs after a few minutes.
+
 ## Containers
 
-See [`containers/`](containers/README.md). Portainer manages three stacks and runs next to a standalone `step-ca`.
+See [`containers/`](containers/README.md). Portainer manages three stacks and runs next to a standalone `step-ca`; `graphite` is a compose stack in `/srv/graphite`.
 
 ## Scheduled jobs
 
@@ -156,9 +168,13 @@ Solved on 2026-11-10 (evening): `auto-update` reboots only after a kernel update
 
 Solved on 2026-11-11: route metrics are pinned in NetworkManager (`eth0` 100, `eth1` 200; profiles renamed from `Wired connection N` and bound to their interface) ([#1](https://github.com/theking2/srv-monitor/issues/1)); `NetworkManager-wait-online` no longer fails on boot ([#2](https://github.com/theking2/srv-monitor/issues/2)); the `performance` stack (openpacketloss) was removed, which frees port 9000 for `step-ca` ([#3](https://github.com/theking2/srv-monitor/issues/3)); `cert-renewer@.service` was removed because TLS certificates come from the nginx-proxy on srv-nas-pi (Let's Encrypt) and this host manages none ([#4](https://github.com/theking2/srv-monitor/issues/4)); the bootloader EEPROM is up to date ([#5](https://github.com/theking2/srv-monitor/issues/5)).
 
+Solved on 2026-11-28: the Director is set up (kickstart, schema migrations, API user, `TicketSalt`) and srv-nas-pi is monitored through an Icinga agent; Graphite and the Icinga Web graphite module show performance data as graphs.
+
+Solved on 2026-11-28 (afternoon): Docker memory limits are enforced. The firmware adds `cgroup_disable=memory` to the kernel command line (Raspberry Pi default); [`cmdline.txt`](cmdline.txt) now ends with `cgroup_enable=memory`, which comes later and wins. After the reboot `graphite` (512 MiB) and `ipa-ocr` (2 GiB) were recreated, because Docker stores a limit of 0 for containers created while limits were unsupported. `lj-worker` got its 512 MiB with `docker update --memory 512m --memory-swap 1g`: "Update the stack" in Portainer does not recreate a container whose compose file is unchanged.
+
 ## Files that differ from the package defaults
 
-`/etc/skel/.bashrc`, `/etc/login.defs`, `/etc/default/useradd`, `/etc/avahi/avahi-daemon.conf`, `/etc/initramfs-tools/initramfs.conf`, `/etc/systemd/timesyncd.conf`, `/etc/icinga2/constants.conf`, `/etc/icinga2/conf.d/api-users.conf`, `/etc/icinga2/conf.d/services.conf` and `/etc/icinga2/features-available/icingadb.conf`. The first five are not mirrored here.
+`/etc/skel/.bashrc`, `/etc/login.defs`, `/etc/default/useradd`, `/etc/avahi/avahi-daemon.conf`, `/etc/initramfs-tools/initramfs.conf`, `/etc/systemd/timesyncd.conf`, `/etc/icinga2/constants.conf`, `/etc/icinga2/conf.d/api-users.conf`, `/etc/icinga2/conf.d/services.conf`, `/etc/icinga2/features-available/graphite.conf` and `/etc/icinga2/features-available/icingadb.conf`. The first five are not mirrored here.
 
 ## Inventory
 

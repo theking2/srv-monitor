@@ -22,6 +22,16 @@ Compose files: [`ipa-ocr/docker-compose.yml`](ipa-ocr/docker-compose.yml), [`per
 | `/srv/ipa-ocr/logs` | `/logs` | `ipa-ocr`, `ipa-sync`, `ipa-log` (read-only) |
 | `/srv/ipa-ocr/rclone` | `/config` | `ipa-sync` (rclone configuration, not documented here) |
 
+Memory limits are enforced since 2026-11-28 (`cgroup_enable=memory` in `/boot/firmware/cmdline.txt`). A container created before that keeps a limit of 0 until it is recreated: done for `graphite` and `ipa-ocr`. `lj-worker` got its limit with `docker update --memory 512m --memory-swap 1g lj-worker`, because "Update the stack" in Portainer leaves a container with an unchanged compose file as it is.
+
+## Compose stack outside Portainer
+
+| Stack | Directory | Container | Image | Ports | Notes |
+|-------|-----------|-----------|-------|-------|-------|
+| `graphite` | `/srv/graphite` | `graphite` | `graphiteapp/graphite-statsd:latest` | `127.0.0.1:2003` (carbon), `127.0.0.1:8080` (graphite-web) | Icinga performance data, see [`graphite/`](graphite); started with `docker compose up -d`, shown in Portainer as a limited stack |
+
+`/srv/graphite` holds `conf` (written by the image on first start; [`storage-schemas.conf`](graphite/storage-schemas.conf) and [`storage-aggregation.conf`](graphite/storage-aggregation.conf) replaced), `storage` (whisper files) and `statsd` (unused). The image also runs statsd; its ports are not published.
+
 ## Standalone containers
 
 Both were started without a compose file, the original command is not recorded. The values below are read from `docker inspect`.
