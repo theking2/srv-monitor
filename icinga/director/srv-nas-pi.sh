@@ -39,6 +39,9 @@ obj command memavail '{"object_type":"object","methods_execute":"PluginCheck","c
   "arguments":{"-w":{"value":"$memavail_warn$"},"-c":{"value":"$memavail_crit$"}}}'
 obj command units '{"object_type":"object","methods_execute":"PluginCheck","command":"'$P'/check_units",
   "arguments":{"units":{"value":"$units_list$","skip_key":true,"required":true}}}'
+obj command link '{"object_type":"object","methods_execute":"PluginCheck","command":"'$P'/check_link",
+  "arguments":{"-i":{"value":"$link_iface$","required":true},"-s":{"value":"$link_speed$"},"-a":{"value":"$link_address$"},
+  "-g":{"value":"$link_gateway$"},"-w":{"value":"$link_warn$"},"-c":{"value":"$link_crit$"}}}'
 
 ### Templates (named base-* because conf.d already defines generic-service)
 obj host linux-agent '{"object_type":"template","check_command":"hostalive",
@@ -97,5 +100,19 @@ web "web Speedtest"    '{"http_vhost":"speed.kingma.ch","http_ssl":true,"http_sn
 cert() { svc "cert $1" "$(J '{"imports":["base-service"],"check_command":"http","check_interval":"21600",
   "vars":{"http_vhost":"'$1'","http_ssl":true,"http_sni":true,"http_certificate":"21,7"}}')"; }
 for n in office.kingma.ch office.king.ma cloud.kingma.ch speed.kingma.ch home-assistant.kingma.ch; do cert $n; done
+
+# Network links: eth0 = LAN (192.168.111.0/26, home ISP), eth1 = DMZ (192.168.0.0/24, office ISP,
+# Renkforce USB adapter; the router forwards WAN 80/443 to 192.168.0.11:9080/9443)
+link() { svc "link $1" "$(J '{"imports":["base-agent-service"],"check_command":"link","check_interval":"60","retry_interval":"30",
+  "vars":{"link_iface":"'$2'","link_speed":"1000","link_address":"'$3'"}}')"; }
+link "eth0 LAN" eth0 192.168.111.11
+link "eth1 DMZ" eth1 192.168.0.11
+# from srv-monitor: its eth1 is in the same DMZ subnet, so this tests the DMZ link without the router
+svc "ping DMZ" "$(J '{"imports":["base-service"],"check_command":"ping4","check_interval":"60","retry_interval":"30",
+  "vars":{"ping_address":"192.168.0.11"}}')"
+web "web NPM DMZ"      '{"http_address":"192.168.0.11","http_port":"9443","http_vhost":"speed.kingma.ch","http_ssl":true,"http_sni":true}'
+# end to end: srv-monitor routes out through the home ISP, so this request comes in from the internet
+# through the office router's port forward, the DMZ link and NPM
+web "wan office HTTPS" '{"http_address":"speed.kingma.ch","http_vhost":"speed.kingma.ch","http_ssl":true,"http_sni":true}'
 
 icingacli director config deploy
