@@ -1,0 +1,121 @@
+#!/usr/bin/python3 -I
+"""check_ntpd - offset, jitter, drift and sync state of a remote ntpd via NTP mode 6 (what ntpq -c rv reads).
+
+The server must allow queries from this host (no "noquery" for it in ntp.conf).
+
+  -m offset   |offset| of the server's clock to its sync source, ms        (-w/-c in ms)
+  -m jitter   sys_jitter, ms                                              (-w/-c in ms)
+  -m drift    |frequency|, ppm: how far the local oscillator is corrected (-w/-c in ppm)
+  -m sync     leap/stratum, a system peer, enough usable peers            (-w/-c = min candidates)
+Each mode sends only its own values as perfdata, so each service page shows one graph.
+"""
+import argparse, random, socket, struct, sys
+
+OK, WARNING, CRITICAL, UNKNOWN = range(4)
+LABEL = ("OK", "WARNING", "CRITICAL", "UNKNOWN")
+DEFAULTS = {"offset": (10, 50), "jitter": (5, 20), "drift": (200, 450), "sync": (3, 1)}
+# peer status word, bits 8-10: peer selection
+SEL = {0: "reject", 1: "falsetick", 2: "excess", 3: "outlier", 4: "candidate", 5: "backup", 6: "sys.peer", 7: "pps.peer"}
+
+
+def query(host, port, timeout, opcode, assoc=0):
+    """One mode 6 request; returns the reassembled data of all response fragments."""
+    seq = random.randint(1, 0xFFFF)
+    req = struct.pack("!BBHHHHH", (2 << 3) | 6, opcode, seq, 0, assoc, 0, 0)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.settimeout(timeout)
+        s.sendto(req, (host, port))
+        frags, last = {}, None
+        while last is None or sum(len(v) for v in frags.values()) < last:
+            pkt, _ = s.recvfrom(2048)
+            if len(pkt) < 12:
+                continue
+            b1, rseq, status, rassoc, off, cnt = struct.unpack("!BHHHHH", pkt[1:12])
+            if rseq != seq or (b1 & 0x1F) != opcode or not b1 & 0x80:
+                continue
+            if b1 & 0x40:
+                raise RuntimeError("server returned an error (status 0x%04x)" % status)
+            frags[off] = pkt[12:12 + cnt]
+            if not b1 & 0x20:
+                last = off + cnt
+        return b"".join(frags[k] for k in sorted(frags))
+
+
+def parse_vars(data):
+    out = {}
+    for item in data.decode("ascii", "replace").replace("\r\n", "").split(","):
+        if "=" in item:
+            k, v = item.split("=", 1)
+            out[k.strip()] = v.strip().strip('"')
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("-H", "--host", required=True)
+    ap.add_argument("-p", "--port", type=int, default=123)
+    ap.add_argument("-m", "--mode", choices=DEFAULTS, required=True)
+    ap.add_argument("-w", "--warning", type=float)
+    ap.add_argument("-c", "--critical", type=float)
+    ap.add_argument("-t", "--timeout", type=float, default=5)
+    a = ap.parse_args()
+    w, c = a.warning if a.warning is not None else DEFAULTS[a.mode][0], a.critical if a.critical is not None else DEFAULTS[a.mode][1]
+
+    try:
+        sv = parse_vars(query(a.host, a.port, a.timeout, 2))
+        st = query(a.host, a.port, a.timeout, 1)
+    except socket.timeout:
+        print("UNKNOWN - no mode 6 answer from %s (noquery for this host?)" % a.host); return UNKNOWN
+    except Exception as e:
+        print("UNKNOWN - %s: %s" % (a.host, e)); return UNKNOWN
+
+    try:
+        offset = float(sv["offset"]); jitter = float(sv["sys_jitter"]); freq = float(sv["frequency"])
+        stratum = int(sv["stratum"]); leap = int(sv.get("leap", "0"))
+        clk_jitter = float(sv.get("clk_jitter", "nan")); wander = float(sv.get("clk_wander", "nan"))
+    except (KeyError, ValueError) as e:
+        print("UNKNOWN - missing system variable %s" % e); return UNKNOWN
+
+    peers = [struct.unpack("!HH", st[i:i + 4]) for i in range(0, len(st) - 3, 4)]
+    sel = [SEL[(s >> 8) & 7] for _, s in peers]
+    cand = sum(x in ("candidate", "sys.peer", "pps.peer", "backup") for x in sel)
+    syspeer = any(x in ("sys.peer", "pps.peer") for x in sel)
+    refid = sv.get("refid", "?")
+
+    thr = "%g;%g" % (w, c)
+    perf = {
+        "offset": "offset=%.3fms;%s" % (offset, thr),
+        "jitter": "sys_jitter=%.3fms;%s clk_jitter=%.3fms" % (jitter, thr, clk_jitter),
+        "drift": "frequency=%.3f;%s clk_wander=%.3f" % (freq, thr, wander),
+        "sync": "stratum=%d;;;0;16 peers=%d candidates=%d;%s" % (stratum, len(peers), cand, thr),
+    }[a.mode]
+
+    def grade(v, warn, crit):
+        return CRITICAL if v >= crit else WARNING if v >= warn else OK
+
+    if a.mode == "offset":
+        rc = grade(abs(offset), w, c); msg = "offset %.3f ms to %s" % (offset, refid)
+    elif a.mode == "jitter":
+        rc = grade(jitter, w, c); msg = "jitter %.3f ms (clock %.3f ms)" % (jitter, clk_jitter)
+    elif a.mode == "drift":
+        rc = grade(abs(freq), w, c); msg = "drift %.3f ppm, wander %.3f ppm" % (freq, wander)
+    else:
+        problems = []
+        rc = OK
+        if leap == 3 or stratum >= 16:
+            rc = CRITICAL; problems.append("not synchronized (leap=%d, stratum=%d)" % (leap, stratum))
+        if not syspeer:
+            rc = CRITICAL; problems.append("no system peer")
+        if cand < c:
+            rc = CRITICAL; problems.append("only %d usable peers" % cand)
+        elif cand < w:
+            rc = max(rc, WARNING); problems.append("only %d usable peers" % cand)
+        msg = "stratum %d, sync to %s, %d of %d peers usable" % (stratum, refid, cand, len(peers))
+        if problems:
+            msg += " (%s)" % "; ".join(problems)
+    print("%s - %s | %s" % (LABEL[rc], msg, perf))
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())
