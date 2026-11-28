@@ -47,7 +47,7 @@ The metrics are pinned in the NetworkManager profiles `eth0` and `eth1` (`nmcli 
 | Port | Process | Bound to | Purpose |
 |------|---------|----------|---------|
 | 22 | sshd | all | SSH |
-| 80 | apache2 | all | Icinga Web 2 at `/icingaweb2`, default page in `/var/www/html` |
+| 80 | apache2 | all | Icinga Web 2 at `/icingaweb2`; `/` redirects there ([`icingaweb2-root-redirect.conf`](etc/apache2/conf-available/icingaweb2-root-redirect.conf)), so `http://srv-monitor/` and `monitor.kingma.ch` open Icinga Web |
 | 111 | rpcbind | all | RPC portmapper |
 | 3306 | mariadbd | 127.0.0.1 | MariaDB |
 | 5353 | avahi-daemon | all | mDNS |
@@ -177,7 +177,7 @@ Solved on 2026-11-28 (afternoon): Docker memory limits are enforced. The firmwar
 
 ## Files that differ from the package defaults
 
-`/etc/skel/.bashrc`, `/etc/login.defs`, `/etc/default/useradd`, `/etc/avahi/avahi-daemon.conf`, `/etc/initramfs-tools/initramfs.conf`, `/etc/systemd/timesyncd.conf`, `/etc/icinga2/constants.conf`, `/etc/icinga2/conf.d/api-users.conf`, `/etc/icinga2/conf.d/services.conf`, `/etc/icinga2/features-available/graphite.conf` and `/etc/icinga2/features-available/icingadb.conf`. The first five are not mirrored here.
+`/etc/skel/.bashrc`, `/etc/login.defs`, `/etc/default/useradd`, `/etc/avahi/avahi-daemon.conf`, `/etc/initramfs-tools/initramfs.conf`, `/etc/systemd/timesyncd.conf`, `/etc/icinga2/constants.conf`, `/etc/icinga2/conf.d/api-users.conf`, `/etc/icinga2/conf.d/services.conf`, `/etc/icinga2/features-available/graphite.conf`, `/etc/apache2/conf-available/icingaweb2-root-redirect.conf` (enabled with `a2enconf`) and `/etc/icinga2/features-available/icingadb.conf`. The first five are not mirrored here.
 
 ## Inventory
 
