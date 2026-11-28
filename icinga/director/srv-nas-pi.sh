@@ -97,9 +97,14 @@ web "web OnlyOffice"   '{"http_vhost":"cloud.kingma.ch","http_ssl":true,"http_sn
 web "web Lyrion"       '{"http_port":"9000"}'
 web "web HomeAssistant" '{"http_port":"8123"}'
 web "web Speedtest"    '{"http_vhost":"speed.kingma.ch","http_ssl":true,"http_sni":true}'
+# cert <name> [warn,crit days]: certificate NPM serves for <name> on 192.168.111.11
 cert() { svc "cert $1" "$(J '{"imports":["base-service"],"check_command":"http","check_interval":"21600",
-  "vars":{"http_vhost":"'$1'","http_ssl":true,"http_sni":true,"http_certificate":"21,7"}}')"; }
+  "vars":{"http_vhost":"'$1'","http_ssl":true,"http_sni":true,"http_certificate":"'${2:-21,7}'"}}')"; }
+# Let's Encrypt (90 days, NPM renews 30 days before expiry)
 for n in office.kingma.ch office.king.ma cloud.kingma.ch speed.kingma.ch home-assistant.kingma.ch; do cert $n; done
+# step-ca, renewed on the NAS by npm-cert-renew@<id>.service (step ca renew --daemon) at about 2/3 of the
+# lifetime: 30-day certificates at ~10 days left, so 7,3 only fires when renewal has failed for days
+for n in lyrion.kingma npm.kingma router.kingma ha.kingma monitor.kingma; do cert $n 7,3; done
 
 # Network links: eth0 = LAN (192.168.111.0/26, home ISP), eth1 = DMZ (192.168.0.0/24, office ISP,
 # Renkforce USB adapter; the router forwards WAN 80/443 to 192.168.0.11:9080/9443)
