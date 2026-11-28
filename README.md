@@ -170,7 +170,7 @@ Solved on 2026-11-11: route metrics are pinned in NetworkManager (`eth0` 100, `e
 
 Solved on 2026-11-28: the Director is set up (kickstart, schema migrations, API user, `TicketSalt`) and srv-nas-pi is monitored through an Icinga agent; Graphite and the Icinga Web graphite module show performance data as graphs.
 
-Solved on 2026-11-28 (afternoon): Docker memory limits are enforced. The firmware adds `cgroup_disable=memory` to the kernel command line (Raspberry Pi default); [`cmdline.txt`](cmdline.txt) now ends with `cgroup_enable=memory`, which comes later and wins. After the reboot `graphite` (512 MiB) and `ipa-ocr` (2 GiB) were recreated, because Docker stores a limit of 0 for containers created while limits were unsupported. `lj-worker` (512 MiB, 1 CPU) still needs an update of its stack in Portainer: its compose file takes `LJ_WORKER_SECRET` from Portainer.
+Solved on 2026-11-28 (afternoon): Docker memory limits are enforced. The firmware adds `cgroup_disable=memory` to the kernel command line (Raspberry Pi default); [`cmdline.txt`](cmdline.txt) now ends with `cgroup_enable=memory`, which comes later and wins. After the reboot `graphite` (512 MiB) and `ipa-ocr` (2 GiB) were recreated, because Docker stores a limit of 0 for containers created while limits were unsupported. `lj-worker` got its 512 MiB with `docker update --memory 512m --memory-swap 1g`: "Update the stack" in Portainer does not recreate a container whose compose file is unchanged.
 
 ## Files that differ from the package defaults
 

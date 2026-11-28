@@ -22,7 +22,7 @@ Compose files: [`ipa-ocr/docker-compose.yml`](ipa-ocr/docker-compose.yml), [`per
 | `/srv/ipa-ocr/logs` | `/logs` | `ipa-ocr`, `ipa-sync`, `ipa-log` (read-only) |
 | `/srv/ipa-ocr/rclone` | `/config` | `ipa-sync` (rclone configuration, not documented here) |
 
-Memory limits are enforced since 2026-11-28 (`cgroup_enable=memory` in `/boot/firmware/cmdline.txt`). A container created before that keeps a limit of 0 until it is recreated: done for `graphite` and `ipa-ocr`; `lj-worker` needs "Update the stack" in Portainer, because its compose file takes `LJ_WORKER_SECRET` from Portainer.
+Memory limits are enforced since 2026-11-28 (`cgroup_enable=memory` in `/boot/firmware/cmdline.txt`). A container created before that keeps a limit of 0 until it is recreated: done for `graphite` and `ipa-ocr`. `lj-worker` got its limit with `docker update --memory 512m --memory-swap 1g lj-worker`, because "Update the stack" in Portainer leaves a container with an unchanged compose file as it is.
 
 ## Compose stack outside Portainer
 
