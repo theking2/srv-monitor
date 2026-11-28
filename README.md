@@ -97,9 +97,9 @@ Single node: `NodeName` and `ZoneName` are both `srv-monitor`. The configuration
 
 | File | Content |
 |------|---------|
-| `icinga2/constants.conf` | `NodeName` and `ZoneName` set to `srv-monitor`; `TicketSalt` is empty |
+| `icinga2/constants.conf` | `NodeName` and `ZoneName` set to `srv-monitor`; `TicketSalt` is set (for agent tickets) |
 | `icinga2/zones.conf` | zones `srv-monitor`, `global-templates`, `director-global` |
-| `icinga2/conf.d/api-users.conf` | API user for Icinga DB Web |
+| `icinga2/conf.d/api-users.conf` | API users for Icinga DB Web and the Director |
 | `icinga2/features-available/icingadb.conf` | Icinga DB feature, Redis on `127.0.0.1:6380` |
 | `icingadb/config.yml` | Icinga DB daemon: MariaDB on `localhost`, Redis on `localhost` |
 | `icingaweb2/` | resources (databases `icingaweb2`, `icingadb`, `director`), DB authentication, modules `icingadb` and `director` |
@@ -108,7 +108,28 @@ Single node: `NodeName` and `ZoneName` are both `srv-monitor`. The configuration
 - Enabled features: `api`, `checker`, `icingadb`, `mainlog`, `notification`.
 - The configuration validates (`icinga2 daemon -C`): 1 host, 12 services, 13 notifications, 250 check commands.
 - Icinga Web 2 stores its configuration, authentication and the Director in MariaDB. Databases: `icingaweb2`, `icingadb`, `director` (194 MB in `/var/lib/mysql`).
-- `icinga-director.service` runs the Director daemon.
+- `icinga-director.service` runs the Director daemon. The Director is kickstarted (2026-11-28) from `modules/director/kickstart.ini`: it owns endpoint and zone `srv-monitor` and deploys to the master.
+- Director schema migrated to the 1.12 level on 2026-11-28 (4 migrations were pending; dumps in `/var/backups/director-*.sql.gz`).
+
+### Agents and Director objects
+
+Remote hosts are managed in the Director only. Hand-written files in `conf.d` cover the master itself.
+
+| Object | Kind | Purpose |
+|--------|------|---------|
+| `linux-agent` | host template | `hostalive`, Icinga agent, master connects, accepts config |
+| `base-service` | service template | 5 min interval, 1 min retry, 3 attempts (`generic-service` is taken by `conf.d/templates.conf`) |
+| `base-agent-service` | service template | `base-service`, runs on the agent |
+| `disk`, `load`, `memory`, `swap`, `procs`, `apt`, `ping`, `ssh` | apply rules | every host that imports `linux-agent` |
+| `zpool`, `smart_disk`, `pi_health`, `memavail`, `units` | check commands | plugins in `/usr/local/lib/nagios/plugins` on the agent |
+
+`/etc/icinga2/conf.d/services.conf`: the example rules `ping4`, `ping6` and `ssh` have `ignore where host.name != NodeName`, so they no longer clash with Director hosts.
+
+| Host | Agent | Defined by |
+|------|-------|------------|
+| `srv-nas-pi.kingma` (OMV, `192.168.111.11`) | 2.16.6, since 2026-11-28 | [`icinga/director/srv-nas-pi.sh`](icinga/director/srv-nas-pi.sh), plugins and setup in [srv-nas-pi/icinga](https://github.com/theking2/srv-nas-pi/tree/main/icinga) |
+
+New agent: create the host in the Director (import `linux-agent`), deploy, get a ticket with `sudo icinga2 pki ticket --cn <host>`, then run `icinga2 node setup` on the agent with parent endpoint `srv-monitor,192.168.111.22,5665`.
 - `icingadb-redis.service` is a hand-made unit, see [`systemd/`](systemd).
 
 ## Containers
@@ -137,7 +158,7 @@ Solved on 2026-11-11: route metrics are pinned in NetworkManager (`eth0` 100, `e
 
 ## Files that differ from the package defaults
 
-`/etc/skel/.bashrc`, `/etc/login.defs`, `/etc/default/useradd`, `/etc/avahi/avahi-daemon.conf`, `/etc/initramfs-tools/initramfs.conf`, `/etc/systemd/timesyncd.conf`, `/etc/icinga2/constants.conf` and `/etc/icinga2/features-available/icingadb.conf`. The first five are not mirrored here.
+`/etc/skel/.bashrc`, `/etc/login.defs`, `/etc/default/useradd`, `/etc/avahi/avahi-daemon.conf`, `/etc/initramfs-tools/initramfs.conf`, `/etc/systemd/timesyncd.conf`, `/etc/icinga2/constants.conf`, `/etc/icinga2/conf.d/api-users.conf`, `/etc/icinga2/conf.d/services.conf` and `/etc/icinga2/features-available/icingadb.conf`. The first five are not mirrored here.
 
 ## Inventory
 
